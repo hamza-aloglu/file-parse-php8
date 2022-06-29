@@ -9,28 +9,59 @@ declare(strict_types=1);
 
 function getTransactions(string $directory):array
 {
-    echo "-------------------------------------------";
-    echo "<br>";
-
-
     $files = scandir($directory);
-    array_splice($files, 0, 2);
-    foreach ($files as $file) {
-        $resource = fopen("c:\\xampp\\htdocs\\file-parse-php8\\transaction_files\\" . $file, 'r');
+    $transactions = [];
 
+    foreach ($files as $file) {
+        if (is_dir($file))
+            continue;
+
+        $filePath = $directory . "\\" . $file;
+        if (!file_exists($filePath))
+            trigger_error('file '. $filePath . ' does not exists', E_USER_ERROR);
+
+        $resource = fopen($filePath, 'r');
+        fgetcsv(($resource)); // first line contains unnecessary explanatory information.
         $transaction = fgetcsv($resource);
-        $transactions = [];
+
         while($transaction != false)
         {
-            array_push($transactions, $transaction);
+            array_push($transactions, $transaction); // make transactions free of "$", "," in separate func.
             $transaction = fgetcsv($resource);
         }
+
         fclose($resource);
     }
 
-    echo "<pre>";
-    print_r($transactions);
-    echo "</pre>";
-
     return $transactions;
+}
+
+function getIncome(array $transactions) : float
+{
+    $totalIncome = 0.0;
+    foreach ($transactions as $transaction)
+    {
+        if($transaction[3][0] != '-')
+        {
+            $number = substr($transaction[3], 1, strlen($transaction[3]));
+            $totalIncome += (float)$number;
+        }
+
+    }
+    return $totalIncome;
+}
+
+function getExpense(array $transactions) : float
+{
+    $totalIncome = 0.0;
+    foreach ($transactions as $transaction)
+    {
+        if($transaction[3][0] == '-')
+        {
+            $number = substr($transaction[3], 2, strlen($transaction[3]));
+            $totalIncome += floatval($number);
+        }
+
+    }
+    return $totalIncome;
 }
