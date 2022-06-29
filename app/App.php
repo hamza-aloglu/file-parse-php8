@@ -7,7 +7,7 @@ declare(strict_types=1);
 // "transaction" is each data, "transactions" all of the data. transaction[date], transaction[check],
 // transaction[desc], transaction[date], transaction[amount].
 
-function getTransactions(string $directory):array
+function getTransactions(string $directory, ?callable $transactionHandler):array
 {
     $files = scandir($directory);
     $transactions = [];
@@ -21,12 +21,13 @@ function getTransactions(string $directory):array
             trigger_error('file '. $filePath . ' does not exists', E_USER_ERROR);
 
         $resource = fopen($filePath, 'r');
-        fgetcsv(($resource)); // first line contains unnecessary explanatory information.
+        fgetcsv(($resource)); // first line contains unnecessary headers.
         $transaction = fgetcsv($resource);
 
         while($transaction != false)
         {
-            array_push($transactions, $transaction); // make transactions free of "$", "," in separate func.
+
+            array_push($transactions, $transactionHandler($transaction));
             $transaction = fgetcsv($resource);
         }
 
@@ -36,15 +37,25 @@ function getTransactions(string $directory):array
     return $transactions;
 }
 
+function extractTransaction(array $transactionRow) : array
+{
+    $amount = str_replace(['$', ','], '', $transactionRow[3]);
+    return [
+        'date' => $transactionRow[0],
+        'check' => $transactionRow[1],
+        'description' => $transactionRow[2],
+        'amount' => (float)$amount
+        ];
+}
+
 function getIncome(array $transactions) : float
 {
     $totalIncome = 0.0;
     foreach ($transactions as $transaction)
     {
-        if($transaction[3][0] != '-')
+        if($transaction['amount'] > 0)
         {
-            $number = substr($transaction[3], 1, strlen($transaction[3]));
-            $totalIncome += (float)$number;
+            $totalIncome += $transaction['amount'];
         }
 
     }
@@ -56,10 +67,9 @@ function getExpense(array $transactions) : float
     $totalIncome = 0.0;
     foreach ($transactions as $transaction)
     {
-        if($transaction[3][0] == '-')
+        if($transaction['amount'] < 0)
         {
-            $number = substr($transaction[3], 2, strlen($transaction[3]));
-            $totalIncome += floatval($number);
+            $totalIncome += $transaction['amount'];
         }
 
     }
